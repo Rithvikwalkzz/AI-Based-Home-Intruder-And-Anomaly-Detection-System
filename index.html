@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Intruder Detection</title>
+
+<style>
+:root{
+  --bg-main:#121212;
+  --bg-card:#1e1e1e;
+  --bg-soft:#252525;
+  --border:#333;
+  --accent:#ffb703;
+  --accent-2:#fb8500;
+  --danger:#ef476f;
+  --text-soft:#cfcfcf;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:"Segoe UI",system-ui,sans-serif;
+  background:
+    linear-gradient(135deg,#1a1a1a,#0f0f0f);
+  color:#fff;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+}
+
+/* MAIN WRAPPER */
+.app{
+  width:96%;
+  max-width:1250px;
+  margin:28px auto;
+  padding:26px;
+  border-radius:22px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  box-shadow:0 25px 60px rgba(0,0,0,.7);
+}
+
+/* HEADER */
+.header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:18px;
+}
+
+.header h1{
+  font-size:1.7rem;
+  letter-spacing:.4px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.header h1 span{
+  font-size:1.9rem;
+}
+
+/* LAYOUT */
+.content{
+  display:grid;
+  grid-template-columns:2.3fr 1fr;
+  gap:22px;
+}
+
+@media(max-width:900px){
+  .content{grid-template-columns:1fr}
+}
+
+/* VIDEO CARD */
+.video-card{
+  background:var(--bg-soft);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:16px;
+  height:420px;               /* 👈 fixed height */
+  display:flex;
+  flex-direction:column;
+}
+
+/* CAMERA FEED */
+.video-wrapper{
+  flex:1;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid var(--border);
+  background:#000;
+}
+
+.video-wrapper img{
+  width:100%;
+  height:100%;
+  object-fit:cover;           /* 👈 no vertical stretch */
+}
+
+/* CONTROLS */
+.controls{
+  margin-top:12px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.controls input{
+  flex:1 1 200px;
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#181818;
+  color:#fff;
+  outline:none;
+}
+
+.controls input:focus{
+  border-color:var(--accent);
+}
+
+.btn{
+  padding:10px 18px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#2b2b2b;
+  color:#fff;
+  font-weight:600;
+  cursor:pointer;
+  transition:.2s;
+}
+
+.btn:hover{
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#000;
+}
+
+/* SIDE PANEL */
+.side{
+  background:var(--bg-soft);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  height:420px;              /* 👈 matches camera height */
+}
+
+.side h2{
+  font-size:1.05rem;
+  margin-bottom:10px;
+  color:var(--text-soft);
+}
+
+/* LIST */
+.list{
+  flex:1;
+  overflow-y:auto;
+}
+
+.list::-webkit-scrollbar{width:6px}
+.list::-webkit-scrollbar-thumb{
+  background:#444;
+  border-radius:10px;
+}
+
+.list div{
+  background:#1b1b1b;
+  border:1px solid #2e2e2e;
+  border-radius:12px;
+  padding:9px 12px;
+  margin-bottom:8px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+/* DELETE BTN */
+.deleteFaceBtn{
+  background:none;
+  border:none;
+  color:var(--danger);
+  font-size:1.05rem;
+  cursor:pointer;
+  transition:.2s;
+}
+
+.deleteFaceBtn:hover{
+  transform:scale(1.2);
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <div class="header">
+    <h1><span>🔐</span>Home Intruder Detection</h1>
+  </div>
+
+  <div class="content">
+
+    <!-- VIDEO SECTION -->
+    <div class="video-card">
+      <div class="video-wrapper">
+        <img id="videoEl" src="/video_feed" alt="Camera feed">
+      </div>
+
+      <div class="controls">
+        <input id="nameInput" placeholder="Enter name">
+        <button class="btn" id="registerBtn">Register</button>
+        <button class="btn" id="refreshBtn">Clear Faces</button>
+      </div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="side">
+      <h2>Known Faces</h2>
+      <div id="knownList" class="list"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const nameInput = document.getElementById('nameInput');
+const registerBtn = document.getElementById('registerBtn');
+const refreshBtn = document.getElementById('refreshBtn');
+const knownList = document.getElementById('knownList');
+
+registerBtn.addEventListener('click', async ()=>{
+  const name = nameInput.value.trim();
+  if(!name){ alert("Enter a name!"); return; }
+  const form = new FormData();
+  form.append("name", name);
+  const resp = await fetch('/register', {method:'POST', body: form});
+  if(!resp.ok){ alert("Registration failed"); return; }
+  alert("Registered: " + name);
+  nameInput.value = '';
+  loadKnownFaces();
+});
+
+async function loadKnownFaces(){
+  const res = await fetch('/known_faces');
+  if(!res.ok){ knownList.innerHTML="<i>Failed</i>"; return; }
+  const data = await res.json();
+  if(!data.length){ knownList.innerHTML="<i>No known faces</i>"; return; }
+  knownList.innerHTML = data.map(f => `
+    <div>
+      <div>• <b>${f.name}</b></div>
+      <button class="deleteFaceBtn" data-id="${f.id}">❌</button>
+    </div>`).join('');
+  document.querySelectorAll('.deleteFaceBtn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm("Delete this face?")) return;
+      const id = btn.getAttribute('data-id');
+      const resp = await fetch(`/known_faces/${id}`, {method:'DELETE'});
+      if(resp.ok){ loadKnownFaces(); }
+    });
+  });
+}
+
+refreshBtn.addEventListener('click', async ()=>{
+  if(!confirm("Clear all known faces?")) return;
+  const resp = await fetch('/known_faces', {method:'DELETE'});
+  if(resp.ok){ loadKnownFaces(); }
+});
+
+loadKnownFaces();
+</script>
+
+</body>
+</html>

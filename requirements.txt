@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+opencv-python
+opencv-contrib-python
+mediapipe
+numpy
+pillow
+keras-facenet
+python-multipart
+aiofiles
+tensorflow==2.15.0
+scipy
+jinja2
+pywebview
